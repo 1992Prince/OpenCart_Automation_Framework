@@ -1,0 +1,17 @@
+[
+    {
+        "username": "wrong@pam",
+        "password": "pw123",
+        "id":121
+    },
+    {
+        "username": "pwapril@pw.com",
+        "password": "pw123",
+        "id":122
+    },
+    {
+        "username": "",
+        "password": "pw123",
+        "id":123
+    }
+]
