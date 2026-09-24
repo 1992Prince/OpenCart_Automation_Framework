@@ -1,11 +1,72 @@
-import { Page } from '@playwright/test'
+import { Page,Locator } from '@playwright/test'
 
 export class BasePage {
 
     protected readonly page: Page;
 
+    // common locators across all the pages
+    protected readonly logo: Locator;
+    protected readonly searchBox: Locator;
+    protected readonly searchIcon: Locator;
+    protected readonly fotterLinks: Locator;
+    protected readonly currency: Locator;
+    protected readonly cartBtn: Locator;
+
+
     constructor(page: Page){
-        this.page = page
+        this.page = page;
+        this.logo = page.getByRole('img', {name: 'naveenopencart'});
+        this.searchBox = page.getByRole('textbox', {name: 'Search'});
+        this.searchIcon = page.locator('div#search button');
+        this.currency = page.locator('#form-currency');
+        this.cartBtn = page.locator('div#cart button');
+        this.fotterLinks = page.locator('footer a');
+    }
+
+    // common actions/functionalities on all pages
+    async isLogoVisible(): Promise<boolean>{
+        return await this.logo.isVisible();
+    }
+
+    async isSearchBoxVisible(): Promise<boolean>{
+        return await this.searchBox.isVisible();
+    }
+
+    async isCurrencyVisible(): Promise<boolean>{
+        return await this.currency.isVisible();
+    }
+
+    async isCartBtnVisible(): Promise<boolean>{
+        return await this.cartBtn.isVisible();
+    }
+
+    async getPageFootersCount(): Promise<number>{
+        return await this.fotterLinks.count();
+    }
+
+    async getPageFooters(): Promise<string[]>{
+        return await this.fotterLinks.allInnerTexts();
+    }
+
+
+    // page level generic methods
+    async getPageTitle(): Promise<string>{
+        return await this.page.title();
+    }
+
+    getPageCurrentURL(): string{
+        return this.page.url();
+    }
+
+    async waitForPageLoad(){
+        await this.page.waitForLoadState('load');
+    }
+
+    async takeScreenshot(name: string){
+        await this.page.screenshot({
+            fullPage:true,
+            path: `reports/screenshot/${name}.png`
+        })
     }
 
 

@@ -1,0 +1,30 @@
+{
+  "shouldLoginSuccessfully": [
+    {
+      "description": "Standard User Login",
+      "username": "pwapril@pw.com",
+      "password": "pw123",
+      "expectedRole": "USER"
+    }
+  ],
+  "shouldFailLoginWithInvalidCredentials": [
+    {
+      "description": "Invalid password",
+      "username": "standard_user",
+      "password": "wrong_password",
+      "expectedError": "Invalid credentials"
+    },
+    {
+      "description": "Locked-out account",
+      "username": "locked_user",
+      "password": "secret_password",
+      "expectedError": "User account is locked"
+    },
+    {
+      "description": "Non-existent user",
+      "username": "ghost_user",
+      "password": "secret_password",
+      "expectedError": "User does not exist"
+    }
+  ]
+}

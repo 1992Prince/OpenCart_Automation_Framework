@@ -35,3 +35,20 @@ test('home page headers exists test', async ({homePage}) => {
 })
 
 
+// common feature/functionalities test are available in HomePage
+test('App logo exists on Login Page', async ({homePage}) => {
+    expect(await homePage.isLogoVisible()).toBeTruthy();
+})
+
+test('App search box exists on Login Page', async ({homePage}) => {
+    expect(await homePage.isSearchBoxVisible()).toBeTruthy();
+})
+
+test('App Cart exists on Login Page', async ({homePage}) => {
+    expect(await homePage.isCartBtnVisible()).toBeTruthy();
+})
+
+test('App Footers exists on Login Page', async ({homePage}) => {
+    expect(await homePage.getPageFootersCount()).toBeGreaterThan(4);
+
+})

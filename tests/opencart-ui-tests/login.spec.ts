@@ -12,7 +12,7 @@ test.beforeEach(async ({loginPage}) => {
 
 test('Login Page Title Test', async ({loginPage}) => {
     
-    let pageTitle = await loginPage.getLoginPageTitle();
+    let pageTitle = await loginPage.getPageTitle();
     console.log(`Page title : ${pageTitle}`)
     expect(pageTitle).toBe('Account Login');
 })
@@ -68,9 +68,27 @@ for(let data of testData2){
 // Data Driven from json 
 let testData3: Record<string, string>[] = JsonHelper.readJson('src/testsData/loginData.json');
 for(let data of testData3){
-    test.only(`Login Test from json ${data.id}`, async ({loginPage, page}) => {
+    test(`Login Test from json ${data.id}`, async ({loginPage, page}) => {
     console.log(`${data.username} and ${data.password}`)
     await loginPage.doLogin(data.username, data.password);
     await page.waitForTimeout(2000);
 })
 }
+
+
+// common feature/functionalities test are available in LoginPage
+test('App logo exists on Login Page', async ({loginPage}) => {
+    expect(await loginPage.isLogoVisible()).toBeTruthy();
+})
+
+test('App search box exists on Login Page', async ({loginPage}) => {
+    expect(await loginPage.isSearchBoxVisible()).toBeTruthy();
+})
+
+test('App Cart exists on Login Page', async ({loginPage}) => {
+    expect(await loginPage.isCartBtnVisible()).toBeTruthy();
+})
+
+test('App Footers exists on Login Page', async ({loginPage}) => {
+    expect(await loginPage.getPageFootersCount()).toBeGreaterThan(4);
+})
