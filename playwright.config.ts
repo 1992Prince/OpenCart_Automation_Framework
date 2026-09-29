@@ -24,7 +24,7 @@ export default defineConfig({
     // baseURL: 'http://localhost:3000',
 
     trace: 'on-first-retry',
-    headless: false,
+    headless: process.env.CI ? true : false,
     baseURL: process.env.APP_BASE_URL,
   },
 
