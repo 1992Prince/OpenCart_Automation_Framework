@@ -20,7 +20,7 @@ test.skip(`Login Successful Test from json`, async ({ loginPage, page }) => {
 
 let loginUnSucessfulData = testData.shouldFailLoginWithInvalidCredentials;
 for(let data of loginUnSucessfulData){
-    test.only(`Login Test from json ${data.description}`, async ({loginPage, page}) => {
+    test(`Login Test from json ${data.description}`, async ({loginPage, page}) => {
     console.log(`${data.username} and ${data.password}`)
     await loginPage.doLogin(data.username, data.password);
     await page.waitForTimeout(2000);
