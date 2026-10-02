@@ -230,7 +230,7 @@ jobs:
           subject: "🎭 Playwright [${{ inputs.environment }}] — ${{ needs.test.result }} — Run ${{ github.run_id }}"
 
           # Repository Secret
-          to: to: princepandey155@yahoo.in, princepandey155@gmail.com
+          to: princepandey155@yahoo.in, princepandey155@gmail.com
 
           from: "CI Bot <${{ secrets.EMAIL_USERNAME }}>"
           
