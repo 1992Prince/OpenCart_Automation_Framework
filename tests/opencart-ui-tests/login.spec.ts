@@ -10,20 +10,20 @@ test.beforeEach(async ({loginPage}) => {
     
 })
 
-test('Login Page Title Test', async ({loginPage}) => {
+test('Login Page Title Test @smoke', async ({loginPage}) => {
     
     let pageTitle = await loginPage.getPageTitle();
     console.log(`Page title : ${pageTitle}`)
     expect(pageTitle).toBe('Account Login');
 })
 
-test('Forget Pwd Link Exist Test', async ({loginPage}) => {
+test('Forget Pwd Link Exist Test @smoke', async ({loginPage}) => {
     expect(await loginPage.isForgottenPasswordLinkExists()).toBeTruthy();
 
 })
 
 // below after login we are asserting at homepage to make sure user logged in successfull
-test('Login Successful test', async ({loginPage, homePage}) => {
+test('Login Successful test @smoke', async ({loginPage, homePage}) => {
     await loginPage.doLogin(process.env.APP_USERNAME, process.env.APP_PASSWORD);
     expect.soft(await homePage.isLogoutLinkExists()).toBeTruthy();
     expect.soft(await homePage.getHomePageTitle()).toBe("My Account");
@@ -77,18 +77,18 @@ for(let data of testData3){
 
 
 // common feature/functionalities test are available in LoginPage
-test('App logo exists on Login Page', async ({loginPage}) => {
+test('App logo exists on Login Page @smoke', async ({loginPage}) => {
     expect(await loginPage.isLogoVisible()).toBeTruthy();
 })
 
-test('App search box exists on Login Page', async ({loginPage}) => {
+test('App search box exists on Login Page @regression', async ({loginPage}) => {
     expect(await loginPage.isSearchBoxVisible()).toBeTruthy();
 })
 
-test('App Cart exists on Login Page', async ({loginPage}) => {
+test('App Cart exists on Login Page @regression', async ({loginPage}) => {
     expect(await loginPage.isCartBtnVisible()).toBeTruthy();
 })
 
-test('App Footers exists on Login Page', async ({loginPage}) => {
+test('App Footers exists on Login Page @regression', async ({loginPage}) => {
     expect(await loginPage.getPageFootersCount()).toBeGreaterThan(4);
 })

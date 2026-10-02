@@ -1,0 +1,236 @@
+1. What is GitHub Actions?
+==============================================================
+
+- GitHub Actions is a CI/CD automation platform provided by GitHub.
+- It is used to build, test, and deploy applications automatically.
+- For SDET, a common use case is to execute automated tests in CI whenever code changes 
+  are pushed or a PR is created.
+- Workflows are written using YAML (.yml / .yaml) files.
+
+
+2. Where do we create GitHub Actions workflows?
+==============================================================
+
+- Workflows are created inside:
+
+    .github/
+        workflows/
+            playwright.yml
+
+- .github/workflows is the standard location for workflow files.
+- GitHub automatically detects YAML files present in this folder.
+- We can see and manage them from the Actions tab of the repository.
+
+Q - How many workflow files can we create?
+*************************************************************
+    There is no need to keep everything in one file.
+    We can create multiple workflow files, for example:
+
+    .github/workflows/
+        playwright-regression.yml
+        api-tests.yml
+        smoke-tests.yml
+        regression-tests.yml
+        deployment.yml
+
+    Each file represents a separate workflow.
+
+
+3. What is a Workflow?
+==============================================================
+
+    A workflow is an automated process defined in a YAML file.
+
+    It defines:
+
+    - When the workflow should run → on
+    - What machine it should run on → runs-on
+    - What work it should perform → jobs and steps
+
+    Simple flow:
+
+    Trigger -> Workflow -> Job -> Steps -> Test Execution -> Report/Artifacts
+
+
+
+4. How can we trigger a workflow?
+==============================================================
+
+A workflow can be triggered in different ways.
+
+- Push
+    on:
+    push:
+        branches: [main]
+
+    Runs when code is pushed to main.
+
+- Pull Request
+    on:
+    pull_request:
+        branches: [main]
+
+    Runs when a PR is created/updated against main.
+
+- Schedule
+    on:
+    schedule:
+        - cron: '30 14 * * 1-5'
+
+    Runs automatically according to a cron schedule.
+
+- Manual Execution
+    on:
+    workflow_dispatch:
+
+    Allows the user to manually start the workflow from the GitHub Actions UI.
+
+
+
+5. Manual Execution with Input Parameters
+==============================================================
+
+We can also ask the user to select parameters when manually triggering the workflow.
+
+Example:
+
+workflow_dispatch:
+  inputs:
+    environment:
+      description: 'Select environment'
+      required: true
+      default: 'QA'
+      type: choice
+      options:
+        - QA
+        - stage
+        - dev
+
+When we click Run workflow, GitHub provides an environment dropdown:
+
+QA
+stage
+dev
+
+This is useful when the same automation needs to run against different environments.
+
+
+
+6. Jenkins vs GitHub Actions
+==============================================================
+
+Jenkins
+
+    Traditionally, we may need to manage:
+
+    - Jenkins controller/agent setup
+    - Agent machines
+    - Workspace
+    - Tool installation
+    - Maintenance
+
+GitHub Actions
+
+    GitHub provides hosted runners that can execute our workflow.
+
+    For example:
+
+    runs-on: ubuntu-latest
+
+    GitHub provisions a virtual machine for the job.
+
+    After the job finishes, the hosted runner is generally temporary and discarded.
+
+    Interview keyword
+
+    "GitHub-hosted runners provide on-demand execution environments, so we don't have to 
+    maintain dedicated build agents for every workflow."
+
+    GitHub Actions also has self-hosted runners when organizations need their own infrastructure
+
+
+7. What is a Runner?
+==============================================================
+
+A runner is the machine/environment where the GitHub Actions job executes.
+
+Example: runs-on: ubuntu-latest
+
+This means the job runs on a GitHub-hosted Ubuntu machine.
+
+Common examples:
+
+ubuntu-latest
+windows-latest
+macos-latest
+
+For Playwright CI execution, Linux runners are commonly used and 
+browser tests generally run in headless mode.
+
+
+8. What are Jobs?
+==============================================================
+
+jobs defines the actual units of work.
+
+Example:
+
+jobs:
+  test:
+
+Here test is the job ID.
+
+A workflow can have multiple jobs:
+
+jobs:
+  test:
+  api-test:
+  deploy:
+
+Jobs can also have dependencies using needs.
+
+
+9. What are Steps?
+==============================================================
+
+Inside a job, we define individual steps.
+
+Example:
+
+steps:
+  - Checkout code
+  - Setup Node.js
+  - Install dependencies
+  - Install Playwright
+  - Run tests
+  - Upload report
+
+Each step normally performs one logical operation.
+
+
+
+10. uses vs run
+==============================================================
+
+This is an important interview question.
+
+uses
+
+    Used to execute a pre-built GitHub Action.
+
+    Example:
+
+    uses: actions/checkout@v4
+
+run
+
+    Used to execute a shell command.
+
+    Example:
+
+    run: npm ci
+
+Simple way to remember:
+
+    uses → GitHub Action
+    run  → Command

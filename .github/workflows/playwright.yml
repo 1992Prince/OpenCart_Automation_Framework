@@ -58,19 +58,9 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      # reportingLabs run history:
-      # Powers the Trend chart, new vs known failures,
-      # flaky dots and "got slower".
-      # One history per environment.
-
-      - name: Restore reportingLabs history
-        uses: actions/cache@v4
-        with:
-          path: reporting-labs.history.json
-          key: reporting-labs-history-${{ github.event.inputs.environment || 'QA' }}-${{ github.run_id }}
-          restore-keys: reporting-labs-history-${{ github.event.inputs.environment || 'QA' }}-
 
       - name: Run tests
+      
         #run: npx playwright test --project=chromium
         run: npx playwright test tests/opencart-ui-tests/login.spec.ts
         env:

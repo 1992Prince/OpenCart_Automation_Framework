@@ -1,0 +1,227 @@
+11. Important GitHub Actions
+==============================================================
+
+- Checkout
+    uses: actions/checkout@v4
+
+    Purpose:
+    Checks out the repository code into the runner.
+    Without checkout, our test code is not available in the runner workspace.
+
+- Setup Node.js
+    uses: actions/setup-node@v4
+
+    Purpose:
+    Installs/configures the required Node.js version.
+
+    Example:
+    with:
+    node-version: 24
+
+- Upload Artifact
+    uses: actions/upload-artifact@v4
+
+    Purpose:
+    Stores files generated during the workflow.
+    Useful for Playwright HTML reports, screenshots, videos, logs, etc.
+
+    Example:
+    path: playwright-report/
+
+
+
+12. What is Caching?
+==============================================================
+
+Caching is used to avoid downloading/installing the same dependencies repeatedly.
+
+For example, Playwright browsers can take time to download.
+
+We can cache them:
+
+- name: Cache Playwright browsers
+  id: playwright-cache
+  uses: actions/cache@v4
+  with:
+    path: ~/.cache/ms-playwright
+    key: playwright-${{ hashFiles('package-lock.json') }}
+
+How it works
+
+    First execution
+        ↓
+    No cache
+        ↓
+    Download Playwright browsers
+        ↓
+    Save cache
+
+    Next execution
+        ↓
+    Cache available
+        ↓
+    Reuse cache
+        ↓
+    Less execution time
+
+Interview keyword
+
+"Caching improves CI execution time by reusing dependencies or artifacts that don't need 
+to be downloaded on every run."
+
+
+13. What is hashFiles()?
+==============================================================
+
+Example:
+
+key: playwright-${{ hashFiles('package-lock.json') }}
+
+hashFiles() generates a hash based on the specified file.
+
+If package-lock.json changes, the hash changes, so GitHub can create/use a new cache key.
+
+This helps avoid using an outdated cache after dependency changes.
+
+
+14. GitHub Secrets
+==============================================================
+
+Sensitive information should not be hardcoded in the YAML or source code.
+
+Examples:
+
+APP_USERNAME
+APP_PASSWORD
+API_TOKEN
+CLIENT_SECRET
+X_API_KEY
+
+These can be stored in:
+
+    Repository
+    ↓
+    Settings
+    ↓
+    Secrets and variables
+    ↓
+    Actions
+    ↓
+    Repository secrets
+
+Then referenced in YAML: APP_USERNAME: ${{ secrets.APP_USERNAME }}
+
+Interview keyword
+
+"We use GitHub Secrets to securely manage credentials, tokens, API keys, and other 
+sensitive configuration values."
+
+
+15. How does the application read these values?
+==============================================================
+
+In the Playwright code we can read environment variables:
+
+process.env.APP_USERNAME
+process.env.APP_BASE_URL
+process.env.API_TOKEN
+
+Locally, we might use a .env.qa file.
+
+For example:
+
+.env.qa
+.env.stage
+.env.dev
+
+And select the environment using:
+
+const ENV = process.env.ENV || 'qa';
+
+In CI, instead of depending on local .env files, we pass values through GitHub Actions 
+environment variables/secrets.
+
+Example:
+
+env:
+  ENV: ${{ github.event.inputs.environment || 'QA' }}
+  APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+  APP_USERNAME: ${{ secrets.APP_USERNAME }}
+
+
+
+16. Important: process.env.CI
+==============================================================
+
+In Playwright configuration, we often see:
+
+retries: process.env.CI ? 2 : 0
+
+CI is a commonly used environment variable indicating that tests are running in a Continuous Integration environment.
+
+For example:
+
+Local execution → CI is not set/false
+CI execution    → CI is true
+
+Therefore:
+
+retries: process.env.CI ? 2 : 0
+
+means:
+
+CI → 2 retries
+Local → 0 retries
+
+This is a ternary operator.
+
+
+17. CI-specific Workers
+==============================================================
+
+Example:
+
+workers: process.env.CI ? 2 : undefined
+
+This means:
+
+CI     → 2 workers
+Local  → Playwright default worker behavior
+
+We often control workers in CI because the runner has limited resources and excessive 
+parallelism can make tests unstable.
+
+18. Headless Execution
+==============================================================
+
+CI environments generally execute browser tests in headless mode.
+
+Example:
+
+headless: process.env.CI ? true : false
+
+Meaning:
+
+CI    → headless
+Local → headed
+
+This allows developers to see the browser locally while CI executes efficiently without opening 
+a visible browser window.
+
+
+
+19. Different Reports for Local and CI
+==============================================================
+
+We may configure different reporters based on the execution environment.
+
+Example:
+
+reporter: process.env.CI
+  ? [['html']]
+  : [['list']]
+
+Typical approach:
+
+Local → simple console/list reporting
+CI    → HTML/reporting suitable for CI artifacts
