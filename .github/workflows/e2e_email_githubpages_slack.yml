@@ -21,7 +21,7 @@ jobs:
   # =====================================================
 
   test:
-    name: Playwright E2E Tests
+    name: PW E2E Tests
     runs-on: ubuntu-latest
 
     # Playwright image already contains Node,
