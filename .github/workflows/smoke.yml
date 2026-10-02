@@ -1,4 +1,4 @@
-name: Playwright Tests
+name: smoke Tests
 
 on:
   # We can also trigger this workflow on schedule, push to main,

@@ -1,4 +1,4 @@
-name: Playwright Tests
+name: regression Tests
 
 on:
   # We can also trigger this workflow on schedule, push to main,
