@@ -1,0 +1,100 @@
+name: Playwright E2E Tests
+
+on:
+  # Manually trigger workflow from Actions tab.
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment'
+        required: true
+        default: 'QA'
+        type: choice
+        options:
+          - QA
+          - stage
+          - dev
+
+jobs:
+
+  test:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+
+    # Use official Playwright image.
+    # Node.js, Playwright, browsers and OS dependencies are already available.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --init --ipc=host
+
+    # Select GitHub Environment based on dropdown value.
+    environment: ${{ inputs.environment }}
+
+    steps:
+
+      - name: Checkout repository
+        # Clone repository into the CI container.
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        # Install project dependencies from package-lock.json.
+        run: npm ci
+
+      - name: Run Playwright tests
+        run: npm run test:regression
+        env:
+          ENV: ${{ inputs.environment }}
+
+          # GitHub Environment secrets.
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          APP_USERNAME: ${{ secrets.APP_USERNAME }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
+          OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
+          GRANT_TYPE: ${{ secrets.GRANT_TYPE }}
+
+      - name: Upload Playwright HTML Report
+        # Upload report even when tests fail.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright Test Results
+        # Upload screenshots, traces, videos and other debugging artifacts.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ github.run_id }}
+          path: test-results/
+          retention-days: 7
+
+  summary:
+    name: Pipeline Summary
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Results
+        run: |
+          echo "═══════════════════════════════════════════"
+          echo "       PLAYWRIGHT PIPELINE SUMMARY"
+          echo "═══════════════════════════════════════════"
+          echo "Environment:    ${{ inputs.environment }}"
+          echo "Test Job:       ${{ needs.test.result }}"
+          echo "Workflow:       ${{ github.workflow }}"
+          echo "Run Number:     ${{ github.run_number }}"
+          echo "Run ID:         ${{ github.run_id }}"
+          echo "Branch:         ${{ github.ref_name }}"
+          echo "Commit:         ${{ github.sha }}"
+          echo "Triggered By:   ${{ github.actor }}"
+          echo "───────────────────────────────────────────"
+          echo "HTML Report:    Uploaded as CI artifact"
+          echo "Test Results:   Uploaded as CI artifact"
+          echo "═══════════════════════════════════════════"
