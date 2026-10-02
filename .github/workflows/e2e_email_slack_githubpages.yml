@@ -1,0 +1,357 @@
+name: E2E Slack Email GithubPages
+
+on:
+  # Manually trigger workflow from Actions tab.
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment'
+        required: true
+        default: 'QA'
+        type: choice
+        options:
+          - QA
+          - stage
+          - dev
+
+jobs:
+
+  # =====================================================
+  # Run Playwright Tests
+  # =====================================================
+
+  test:
+    name: PW E2E Tests
+    runs-on: ubuntu-latest
+
+    # Playwright image already contains Node,
+    # Playwright, browsers and browser dependencies.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --init --ipc=host
+
+    # Select GitHub Environment from dropdown.
+    environment: ${{ inputs.environment }}
+
+    steps:
+
+      - name: Checkout repository
+        # Clone repository into CI container.
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        # Install project dependencies from package-lock.json.
+        run: npm ci
+
+      - name: Run Playwright tests
+        run: npm run test:regression
+        env:
+          ENV: ${{ inputs.environment }}
+
+          # GitHub Environment secrets.
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          APP_USERNAME: ${{ secrets.APP_USERNAME }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
+          OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
+          GRANT_TYPE: ${{ secrets.GRANT_TYPE }}
+
+      # --------------------------------------------------
+      # Upload Playwright HTML Report
+      # --------------------------------------------------
+
+      - name: Upload Playwright HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+      # --------------------------------------------------
+      # Upload Test Results
+      # --------------------------------------------------
+
+      - name: Upload Playwright Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ github.run_id }}
+          path: test-results/
+          retention-days: 7
+
+
+  # =====================================================
+  # Publish Report + Send Email + Slack
+  # =====================================================
+
+  publish:
+    name: Publish Report + Send Email + Slack
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+
+      # --------------------------------------------------
+      # Download Playwright Report
+      # --------------------------------------------------
+
+      - name: Download Playwright Report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report
+
+      # --------------------------------------------------
+      # Deploy Playwright Report to GitHub Pages
+      # --------------------------------------------------
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright-report
+          keep_files: true
+
+      # --------------------------------------------------
+      # Create Report URL
+      # --------------------------------------------------
+
+      - name: Set Report URL
+        id: report
+        run: |
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+          echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
+          echo "report_url=$REPORT_URL" >> $GITHUB_OUTPUT
+
+          echo "Playwright Report:"
+          echo "$REPORT_URL"
+
+      # --------------------------------------------------
+      # Prepare Slack Status
+      # --------------------------------------------------
+
+      - name: Prepare Slack Status
+        id: status
+        if: always()
+        run: |
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            OVERALL="✅ PASSED"
+            TEST_STATUS="✅ PASSED"
+          else
+            OVERALL="❌ FAILED"
+            TEST_STATUS="❌ FAILED"
+          fi
+
+          echo "overall=$OVERALL" >> $GITHUB_OUTPUT
+          echo "test=$TEST_STATUS" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------
+      # Create Email Dashboard
+      # --------------------------------------------------
+
+      - name: Create Email Dashboard
+        run: |
+
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            STATUS="✅ PASSED"
+          else
+            STATUS="❌ FAILED"
+          fi
+
+          cat > dashboard.html << EOF
+
+          <!DOCTYPE html>
+          <html>
+
+          <body style="font-family:Arial;background:#f5f5f5;padding:20px">
+
+            <div style="
+              max-width:700px;
+              margin:auto;
+              background:white;
+              padding:30px;
+              border-radius:10px;
+            ">
+
+              <h2>🎭 Playwright CI/CD Report</h2>
+
+              <p>
+                <strong>Status:</strong>
+                $STATUS
+              </p>
+
+              <p>
+                <strong>Environment:</strong>
+                ${{ inputs.environment }}
+              </p>
+
+              <p>
+                <strong>Branch:</strong>
+                ${{ github.ref_name }}
+              </p>
+
+              <p>
+                <strong>Run ID:</strong>
+                ${{ github.run_id }}
+              </p>
+
+              <p>
+                <strong>Triggered By:</strong>
+                ${{ github.actor }}
+              </p>
+
+              <hr>
+
+              <p>
+                📊
+                <a href="$REPORT_URL">
+                  Open Playwright HTML Report
+                </a>
+              </p>
+
+            </div>
+
+          </body>
+
+          </html>
+
+          EOF
+
+      # --------------------------------------------------
+      # Send Email
+      # --------------------------------------------------
+
+      - name: Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.hostinger.com
+          server_port: 465
+          secure: true
+
+          # Repository Secrets
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+
+          subject: "🎭 Playwright [${{ inputs.environment }}] — ${{ needs.test.result }} — Run ${{ github.run_id }}"
+
+          # Multiple recipients
+          to: princepandey155@yahoo.in, princepandey155@gmail.com
+
+          from: "CI Bot <${{ secrets.EMAIL_USERNAME }}>"
+          html_body: file://dashboard.html
+
+      # --------------------------------------------------
+      # Send Slack Notification
+      # --------------------------------------------------
+
+      - name: Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🎭 Playwright CI/CD Pipeline Report"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Overall:* ${{ steps.status.outputs.overall }}\n*Environment:* `${{ inputs.environment }}`\n*Branch:* `${{ github.ref_name }}`\n*Triggered by:* `${{ github.actor }}`"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ steps.status.outputs.test }}  *Playwright E2E Tests* — Regression"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📊 View Report"
+                      },
+                      "url": "${{ steps.report.outputs.report_url }}/index.html",
+                      "style": "primary"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📁 GitHub Actions"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+
+  # =====================================================
+  # Pipeline Summary
+  # =====================================================
+
+  summary:
+    name: Pipeline Summary
+    needs: [test, publish]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Results
+        run: |
+          echo "═══════════════════════════════════════════"
+          echo "       PLAYWRIGHT PIPELINE SUMMARY"
+          echo "═══════════════════════════════════════════"
+
+          echo "Environment:    ${{ inputs.environment }}"
+          echo "Test Job:       ${{ needs.test.result }}"
+          echo "Publish Job:    ${{ needs.publish.result }}"
+          echo "Workflow:       ${{ github.workflow }}"
+          echo "Run Number:     ${{ github.run_number }}"
+          echo "Run ID:         ${{ github.run_id }}"
+          echo "Branch:         ${{ github.ref_name }}"
+          echo "Commit:         ${{ github.sha }}"
+          echo "Triggered By:   ${{ github.actor }}"
+
+          echo "───────────────────────────────────────────"
+
+          echo "HTML Report:    Published to GitHub Pages"
+          echo "Test Results:   Uploaded as CI artifact"
+          echo "Email:          Sent"
+          echo "Slack:          Sent"
+
+          echo "═══════════════════════════════════════════"
