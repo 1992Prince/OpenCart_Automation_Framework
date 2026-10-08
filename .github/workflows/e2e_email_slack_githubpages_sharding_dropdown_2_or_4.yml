@@ -28,6 +28,14 @@ on:
           - QA
           - stage
           - dev
+      shards:
+        description: 'Number of Playwright shards (parallel machines)'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '2'
+          - '4'
 
 jobs:
 
@@ -36,8 +44,15 @@ jobs:
   # =====================================================
 
   test:
-    name: PW E2E Tests
+    name: PW E2E Tests — Shard ${{ matrix.shardIndex }}/${{ inputs.shards }}
     runs-on: ubuntu-latest
+
+    # Run the regression suite on two independent GitHub-hosted machines.
+    strategy:
+      fail-fast: false
+      matrix:
+        # Selecting 2 creates shard indices [1, 2]; selecting 4 creates [1, 2, 3, 4].
+        shardIndex: ${{ fromJSON(inputs.shards == '4' && '[1,2,3,4]' || '[1,2]') }}
 
     # Playwright image already contains Node,
     # Playwright, browsers and browser dependencies.
@@ -58,8 +73,10 @@ jobs:
         # Install project dependencies from package-lock.json.
         run: npm ci
 
-      - name: Run Playwright tests
-        run: npm run test:regression
+      - name: Run Playwright tests (2-way sharding)
+        # Playwright distributes the suite across shard 1/2 and shard 2/2.
+        # Blob reports are merged later into one HTML report.
+        run: npm run test:regression -- --shard=${{ matrix.shardIndex }}/${{ inputs.shards }} --reporter=blob
         env:
           ENV: ${{ inputs.environment }}
 
@@ -75,15 +92,16 @@ jobs:
           GRANT_TYPE: ${{ secrets.GRANT_TYPE }}
 
       # --------------------------------------------------
-      # Upload Playwright HTML Report
+      # Upload this shard's Blob Report for merging
       # --------------------------------------------------
 
-      - name: Upload Playwright HTML Report
+      - name: Upload Playwright Blob Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
-          path: playwright-report/
+          name: blob-report-${{ github.run_id }}-${{ matrix.shardIndex }}
+          path: blob-report/
+          if-no-files-found: warn
           retention-days: 7
 
       # --------------------------------------------------
@@ -94,7 +112,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results-${{ github.run_id }}
+          name: playwright-test-results-${{ github.run_id }}-${{ matrix.shardIndex }}
           path: test-results/
           retention-days: 7
 
@@ -120,11 +138,28 @@ jobs:
       # Download Playwright Report
       # --------------------------------------------------
 
-      - name: Download Playwright Report
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies for report merging
+        run: npm ci
+
+      # Download both shard reports into one directory.
+      - name: Download Playwright Blob Reports
         uses: actions/download-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
-          path: playwright-report
+          pattern: blob-report-${{ github.run_id }}-*
+          path: all-blob-reports
+          merge-multiple: true
+
+      - name: Merge shard reports into one HTML report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
 
       # --------------------------------------------------
       # Deploy Playwright Report to GitHub Pages
@@ -212,6 +247,11 @@ jobs:
               </p>
 
               <p>
+                <strong>Sharding:</strong>
+                ${{ inputs.shards }} shards
+              </p>
+
+              <p>
                 <strong>Branch:</strong>
                 ${{ github.ref_name }}
               </p>
@@ -258,7 +298,7 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
 
-          subject: "🎭 Playwright [${{ inputs.environment }}] — ${{ needs.test.result }} — Run ${{ github.run_id }}"
+          subject: "🎭 Playwright [${{ inputs.environment }}] — ${{ inputs.shards }} shards — ${{ needs.test.result }} — Run ${{ github.run_id }}"
 
           # Multiple recipients
           to: princepandey155@yahoo.in, princepandey155@gmail.com
@@ -353,6 +393,7 @@ jobs:
           echo "═══════════════════════════════════════════"
 
           echo "Environment:    ${{ inputs.environment }}"
+          echo "Shard Count:    ${{ inputs.shards }}"
           echo "Test Job:       ${{ needs.test.result }}"
           echo "Publish Job:    ${{ needs.publish.result }}"
           echo "Workflow:       ${{ github.workflow }}"

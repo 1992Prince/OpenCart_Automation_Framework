@@ -26,12 +26,22 @@ export default defineConfig({
   workers: process.env.CI ? 1 : '50%',
 
   // HTML report locally and in CI
-  reporter: [
-    ['html', {
-      outputFolder: 'playwright-report',
-      open: process.env.CI ? 'never' : 'always'
-    }]
-  ],
+  reporter: process.env.CI
+  ? [
+      ['html', {
+        outputFolder: 'playwright-report',
+        open: 'never'
+      }]
+    ]
+  : [
+      ['html', {
+        outputFolder: 'playwright-report',
+        open: 'always'
+      }],
+      ['blob', {
+        outputDir: 'blob-report'
+      }]
+    ],
 
   // Store test artifacts here
   outputDir: 'test-results',

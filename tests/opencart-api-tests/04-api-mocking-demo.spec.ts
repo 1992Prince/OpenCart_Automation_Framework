@@ -11,7 +11,9 @@ test.skip('intercept all backgroud api calls test', async ({page}) => {
 
     await page.goto('https://naveenautomationlabs.com/opencart/index.php?route=common/home');
 
-    await page.pause();
+    await page.waitForTimeout(5000);
+
+    // await page.pause();
 })
 
 test('mock search data api', async ({ page }) => {
@@ -39,5 +41,7 @@ test('mock search data api', async ({ page }) => {
         'https://abc.com/index.php?route=product/search&search=macbook'
     );
 
-    await page.pause();
+     await page.waitForTimeout(5000);
+
+    // await page.pause();
 });
