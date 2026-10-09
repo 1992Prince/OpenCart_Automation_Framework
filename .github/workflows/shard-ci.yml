@@ -1,0 +1,109 @@
+name: E2E Playwright Sharding
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment'
+        required: true
+        default: 'QA'
+        type: choice
+        options:
+          - QA
+          - stage
+          - dev
+      shards:
+        description: 'Number of shards'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '2'
+          - '4'
+
+jobs:
+  test:
+    name: Playwright Shard ${{ matrix.shardIndex }}/${{ inputs.shards }}
+    runs-on: ubuntu-latest
+
+    # Each matrix entry gets its own runner with the Playwright container.
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: ${{ fromJSON(inputs.shards == '4' && '[1,2,3,4]' || '[1,2]') }}
+
+    # Container includes Node.js, Playwright, browsers and browser dependencies.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --init --ipc=host
+
+    # Select the GitHub Environment chosen in the manual dropdown.
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Playwright shard
+        run: npm run test:regression -- --shard=${{ matrix.shardIndex }}/${{ inputs.shards }} --reporter=blob
+        env:
+          CI: 'true'
+          ENV: ${{ inputs.environment }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          APP_USERNAME: ${{ secrets.APP_USERNAME }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
+          OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
+          GRANT_TYPE: ${{ secrets.GRANT_TYPE }}
+
+      - name: Upload shard Blob Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: blob-report/
+          if-no-files-found: warn
+          retention-days: 7
+
+  merge-report:
+    name: Merge shard reports
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+
+    # This job also uses the Playwright image so the Playwright CLI is available.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --init --ipc=host
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all shard Blob Reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+
+      - name: Merge Blob Reports into one HTML report
+        run: npx playwright merge-reports --reporter=html ./all-blob-reports
+
+      - name: Upload combined HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
